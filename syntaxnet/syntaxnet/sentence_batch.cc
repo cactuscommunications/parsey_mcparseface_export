@@ -25,7 +25,7 @@ namespace syntaxnet {
 
 void SentenceBatch::Init(TaskContext *context) {
   if (!use_sentence_feed_) {
-    reader_.reset(new TextReader(*context->GetInput(input_name_)));
+    reader_.reset(new TextReader(*context->GetInput(input_name_), context));
   }
   size_ = 0;
 }

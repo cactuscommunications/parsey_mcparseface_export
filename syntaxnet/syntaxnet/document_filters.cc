@@ -23,6 +23,7 @@ limitations under the License.
 
 #include "syntaxnet/base.h"
 #include "syntaxnet/feature_extractor.h"
+#include "syntaxnet/segmenter_utils.h"
 #include "syntaxnet/sentence.pb.h"
 #include "syntaxnet/utils.h"
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
@@ -47,16 +48,23 @@ namespace {
 void GetTaskContext(OpKernelConstruction *context, TaskContext *task_context) {
   string file_path, data;
   OP_REQUIRES_OK(context, context->GetAttr("task_context", &file_path));
-  OP_REQUIRES_OK(
-      context, ReadFileToString(tensorflow::Env::Default(), file_path, &data));
-  OP_REQUIRES(context,
-              TextFormat::ParseFromString(data, task_context->mutable_spec()),
-              InvalidArgument("Could not parse task context at ", file_path));
+  if (!file_path.empty()) {
+    OP_REQUIRES_OK(context, ReadFileToString(tensorflow::Env::Default(),
+                                             file_path, &data));
+    OP_REQUIRES(context,
+                TextFormat::ParseFromString(data, task_context->mutable_spec()),
+                InvalidArgument("Could not parse task context at ", file_path));
+  } else {
+    OP_REQUIRES_OK(context, context->GetAttr("task_context_str", &data));
+    OP_REQUIRES(context,
+                TextFormat::ParseFromString(data, task_context->mutable_spec()),
+                InvalidArgument("Could not parse task context from ", data));
+  }
 }
 
 // Outputs the given batch of sentences as a tensor and deletes them.
 void OutputDocuments(OpKernelContext *context,
-                     vector<Sentence *> *document_batch) {
+                     std::vector<Sentence *> *document_batch) {
   const int64 size = document_batch->size();
   Tensor *output;
   OP_REQUIRES_OK(context,
@@ -81,7 +89,7 @@ class DocumentSource : public OpKernel {
     OP_REQUIRES(context, batch_size_ > 0,
                 InvalidArgument("invalid batch_size provided"));
     corpus_.reset(documents_from_input_ ? nullptr
-	: new TextReader(*task_context_.GetInput(corpus_name_)));
+	: new TextReader(*task_context_.GetInput(corpus_name_), &task_context_));
   }
 
   void Compute(OpKernelContext *context) override {
@@ -159,7 +167,8 @@ class DocumentSink : public OpKernel {
     GetTaskContext(context, &task_context_);
     string corpus_name;
     OP_REQUIRES_OK(context, context->GetAttr("corpus_name", &corpus_name));
-    writer_.reset(new TextWriter(*task_context_.GetInput(corpus_name)));
+    writer_.reset(
+        new TextWriter(*task_context_.GetInput(corpus_name), &task_context_));
   }
 
   void Compute(OpKernelContext *context) override {
@@ -187,6 +196,67 @@ class DocumentSink : public OpKernel {
 REGISTER_KERNEL_BUILDER(Name("DocumentSink").Device(DEVICE_CPU),
                         DocumentSink);
 
+// Segmenter training data constructor which takes documents with gold
+// segmentation/tokenization as input and convert those docs into utf8-character
+// based token documents, where the break level of each token is used to
+// indicate the gold action of that token.
+//
+// More details see: comments of ConvertToCharTokenDoc function at
+// segmenter_utils.h
+class SegmenterTrainingDataConstructor : public OpKernel {
+ public:
+  explicit SegmenterTrainingDataConstructor(OpKernelConstruction *context)
+      : OpKernel(context) {}
+
+  void Compute(OpKernelContext *context) override {
+    auto documents = context->input(0).vec<string>();
+    std::vector<Sentence *> output_documents;
+    for (int i = 0; i < documents.size(); ++i) {
+      Sentence document;
+      OP_REQUIRES(context, document.ParseFromString(documents(i)),
+                  InvalidArgument("failed to parse sentence"));
+      Sentence *char_document = new Sentence;
+      if (SegmenterUtils::ConvertToCharTokenDoc(document, char_document)) {
+        output_documents.push_back(char_document);
+      } else {
+        delete char_document;
+      }
+    }
+    OutputDocuments(context, &output_documents);
+  }
+};
+
+REGISTER_KERNEL_BUILDER(
+    Name("SegmenterTrainingDataConstructor").Device(DEVICE_CPU),
+    SegmenterTrainingDataConstructor);
+
+// Generate utf-8 character based tokens from text field of the input document,
+// and then populate input document's token field with those character tokens.
+class CharTokenGenerator : public OpKernel {
+ public:
+  explicit CharTokenGenerator(OpKernelConstruction *context)
+      : OpKernel(context) {}
+
+  void Compute(OpKernelContext *context) override {
+    auto documents = context->input(0).vec<string>();
+    std::vector<Sentence *> output_documents;
+    for (int i = 0; i < documents.size(); ++i) {
+      Sentence document;
+      OP_REQUIRES(context, document.ParseFromString(documents(i)),
+                  InvalidArgument("failed to parse sentence"));
+      std::vector<tensorflow::StringPiece> chars;
+      SegmenterUtils::GetUTF8Chars(document.text(), &chars);
+      Sentence *char_document = new Sentence;
+      SegmenterUtils::SetCharsAsTokens(document.text(), chars, char_document);
+      output_documents.push_back(char_document);
+    }
+    OutputDocuments(context, &output_documents);
+  }
+};
+
+REGISTER_KERNEL_BUILDER(
+    Name("CharTokenGenerator").Device(DEVICE_CPU), CharTokenGenerator);
+
 // Sentence filter for filtering out documents where the parse trees are not
 // well-formed, i.e. they contain cycles.
 class WellFormedFilter : public OpKernel {
@@ -199,7 +269,7 @@ class WellFormedFilter : public OpKernel {
 
   void Compute(OpKernelContext *context) override {
     auto documents = context->input(0).vec<string>();
-    vector<Sentence *> output_documents;
+    std::vector<Sentence *> output_documents;
     for (int i = 0; i < documents.size(); ++i) {
       Sentence *document = new Sentence;
       OP_REQUIRES(context, document->ParseFromString(documents(i)),
@@ -215,7 +285,7 @@ class WellFormedFilter : public OpKernel {
 
  private:
   bool ShouldKeep(const Sentence &doc)  {
-    vector<int> visited(doc.token_size(), -1);
+    std::vector<int> visited(doc.token_size(), -1);
     for (int i = 0; i < doc.token_size(); ++i) {
       // Already visited node.
       if (visited[i] != -1) continue;
@@ -268,7 +338,7 @@ class ProjectivizeFilter : public OpKernel {
 
   void Compute(OpKernelContext *context) override {
     auto documents = context->input(0).vec<string>();
-    vector<Sentence *> output_documents;
+    std::vector<Sentence *> output_documents;
     for (int i = 0; i < documents.size(); ++i) {
       Sentence *document = new Sentence;
       OP_REQUIRES(context, document->ParseFromString(documents(i)),
@@ -288,8 +358,8 @@ class ProjectivizeFilter : public OpKernel {
     // Left and right boundaries for arcs. The left and right ends of an arc are
     // bounded by the arcs that pass over it. If an arc exceeds these bounds it
     // will cross an arc passing over it, making it a non-projective arc.
-    vector<int> left(num_tokens);
-    vector<int> right(num_tokens);
+    std::vector<int> left(num_tokens);
+    std::vector<int> right(num_tokens);
 
     // Lift the shortest non-projective arc until the document is projective.
     while (true) {

@@ -3,7 +3,7 @@
 
 package(
     default_visibility = [
-        "//visibility:private",
+        "//visibility:public",
     ],
     features = ["-layering_check"],
 )
@@ -78,7 +78,7 @@ cc_library(
     hdrs = ["base.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "@re2//:re2",
+        "@com_googlesource_code_re2//:re2",
         "@protobuf//:protobuf",
         "@org_tensorflow//third_party/eigen3",
     ] + select({
@@ -112,6 +112,7 @@ cc_library(
     deps = [
         "//external:gtest",
         "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
         "@org_tensorflow//tensorflow/core:testlib",
     ],
 )
@@ -131,7 +132,9 @@ cc_library(
     name = "text_formats",
     srcs = ["text_formats.cc"],
     deps = [
+        ":base",
         ":document_format",
+        ":segmenter_utils",
         ":sentence_proto",
     ],
     alwayslink = 1,
@@ -156,6 +159,42 @@ cc_library(
         ":sentence_proto",
         ":task_context",
     ],
+)
+
+cc_library(
+    name = "char_properties",
+    srcs = ["char_properties.cc"],
+    hdrs = ["char_properties.h"],
+    deps = [
+        ":registry",
+        ":utils",
+        "//util/utf8:unicodetext",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "char_ngram_string_extractor",
+    srcs = ["char_ngram_string_extractor.cc"],
+    hdrs = ["char_ngram_string_extractor.h"],
+    deps = [
+        ":base",
+        ":segmenter_utils",
+        ":task_context",
+    ],
+)
+
+cc_library(
+    name = "segmenter_utils",
+    srcs = ["segmenter_utils.cc"],
+    hdrs = ["segmenter_utils.h"],
+    deps = [
+        ":base",
+        ":char_properties",
+        ":sentence_proto",
+        "//util/utf8:unicodetext",
+    ],
+    alwayslink = 1,
 )
 
 cc_library(
@@ -197,9 +236,31 @@ cc_library(
     hdrs = ["sentence_features.h"],
     deps = [
         ":affix",
+        ":char_ngram_string_extractor",
+        ":char_properties",
         ":feature_extractor",
         ":registry",
+        ":segmenter_utils",
+        ":shared_store",
+        ":task_context",
+        ":workspace",
+        "//util/utf8:unicodetext",
     ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "whole_sentence_features",
+    srcs = ["whole_sentence_features.cc"],
+    hdrs = ["whole_sentence_features.h"],
+    deps = [
+        ":base",
+        ":feature_extractor",
+        ":registry",
+        ":task_context",
+        ":workspace",
+    ],
+    alwayslink = 1,
 )
 
 cc_library(
@@ -251,24 +312,59 @@ cc_library(
 )
 
 cc_library(
+    name = "morphology_label_set",
+    srcs = ["morphology_label_set.cc"],
+    hdrs = ["morphology_label_set.h"],
+    deps = [
+        ":document_format",
+        ":feature_extractor",
+        ":proto_io",
+        ":registry",
+        ":sentence_proto",
+        ":utils",
+    ],
+)
+
+cc_library(
     name = "parser_transitions",
     srcs = [
         "arc_standard_transitions.cc",
+        "binary_segment_state.cc",
+        "binary_segment_transitions.cc",
+        "char_shift_transitions.cc",
+        "head_transitions.cc",
+        "head_transitions.h",
+        "label_transitions.cc",
+        "label_transitions.h",
+        "morpher_transitions.cc",
+        "once_transitions.cc",
+        "parser_features.cc",
         "parser_state.cc",
         "parser_transitions.cc",
+        "shift_transitions.cc",
         "tagger_transitions.cc",
     ],
     hdrs = [
+        "binary_segment_state.h",
+        "char_shift_transitions.h",
+        "parser_features.h",
         "parser_state.h",
         "parser_transitions.h",
     ],
     deps = [
-        ":kbest_syntax_proto",
+        ":base",
+        ":feature_extractor",
+        ":morphology_label_set",
         ":registry",
+        ":segmenter_utils",
+        ":sentence_features",
         ":sentence_proto",
         ":shared_store",
         ":task_context",
         ":term_frequency_map",
+        ":utils",
+        ":whole_sentence_features",
+        ":workspace",
     ],
     alwayslink = 1,
 )
@@ -289,32 +385,17 @@ cc_library(
 )
 
 cc_library(
-    name = "parser_features",
-    srcs = ["parser_features.cc"],
-    hdrs = ["parser_features.h"],
-    deps = [
-        ":affix",
-        ":feature_extractor",
-        ":parser_transitions",
-        ":registry",
-        ":sentence_features",
-        ":task_context",
-        ":term_frequency_map",
-        ":workspace",
-    ],
-    alwayslink = 1,
-)
-
-cc_library(
     name = "embedding_feature_extractor",
     srcs = ["embedding_feature_extractor.cc"],
     hdrs = ["embedding_feature_extractor.h"],
     deps = [
+        ":base",
         ":feature_extractor",
-        ":parser_features",
         ":parser_transitions",
+        ":sentence_features",
         ":sparse_proto",
         ":task_context",
+        ":utils",
         ":workspace",
     ],
 )
@@ -326,7 +407,6 @@ cc_library(
     deps = [
         ":embedding_feature_extractor",
         ":feature_extractor",
-        ":parser_features",
         ":parser_transitions",
         ":sentence_proto",
         ":sparse_proto",
@@ -344,7 +424,6 @@ cc_library(
         "reader_ops.cc",
     ],
     deps = [
-        ":parser_features",
         ":parser_transitions",
         ":sentence_batch",
         ":sentence_proto",
@@ -360,8 +439,8 @@ cc_library(
     srcs = ["document_filters.cc"],
     deps = [
         ":document_format",
-        ":parser_features",
         ":parser_transitions",
+        ":segmenter_utils",
         ":sentence_batch",
         ":sentence_proto",
         ":task_context",
@@ -374,14 +453,17 @@ cc_library(
     name = "lexicon_builder",
     srcs = ["lexicon_builder.cc"],
     deps = [
-        ":dictionary_proto",
-        ":document_format",
-        ":parser_features",
+        ":affix",
+        ":base",
+        ":char_ngram_string_extractor",
+        ":feature_extractor",
         ":parser_transitions",
+        ":segmenter_utils",
         ":sentence_batch",
         ":sentence_proto",
-        ":task_context",
+        ":term_frequency_map",
         ":text_formats",
+        ":utils",
     ],
     alwayslink = 1,
 )
@@ -440,11 +522,54 @@ filegroup(
 )
 
 cc_test(
+    name = "binary_segment_state_test",
+    size = "small",
+    srcs = ["binary_segment_state_test.cc"],
+    deps = [
+        ":base",
+        ":parser_transitions",
+        ":term_frequency_map",
+        ":test_main",
+    ],
+)
+
+cc_test(
     name = "shared_store_test",
     size = "small",
     srcs = ["shared_store_test.cc"],
     deps = [
         ":shared_store",
+        ":test_main",
+    ],
+)
+
+cc_test(
+    name = "char_properties_test",
+    srcs = ["char_properties_test.cc"],
+    deps = [
+        ":char_properties",
+        ":test_main",
+    ],
+)
+
+cc_test(
+    name = "char_ngram_string_extractor_test",
+    srcs = ["char_ngram_string_extractor_test.cc"],
+    deps = [
+        ":char_ngram_string_extractor",
+        ":task_context",
+        ":test_main",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+cc_test(
+    name = "segmenter_utils_test",
+    srcs = ["segmenter_utils_test.cc"],
+    deps = [
+        ":base",
+        ":segmenter_utils",
+        ":sentence_proto",
         ":test_main",
     ],
 )
@@ -462,7 +587,33 @@ cc_test(
         ":task_spec_proto",
         ":term_frequency_map",
         ":test_main",
+        ":utils",
         ":workspace",
+    ],
+)
+
+cc_test(
+    name = "whole_sentence_features_test",
+    size = "medium",
+    srcs = ["whole_sentence_features_test.cc"],
+    deps = [
+        ":feature_extractor",
+        ":parser_transitions",
+        ":sentence_proto",
+        ":task_context",
+        ":term_frequency_map",
+        ":test_main",
+        ":whole_sentence_features",
+        ":workspace",
+    ],
+)
+
+cc_test(
+    name = "morphology_label_set_test",
+    srcs = ["morphology_label_set_test.cc"],
+    deps = [
+        ":morphology_label_set",
+        ":test_main",
     ],
 )
 
@@ -481,6 +632,33 @@ cc_test(
 )
 
 cc_test(
+    name = "char_shift_transitions_test",
+    size = "small",
+    srcs = ["char_shift_transitions_test.cc"],
+    data = [":testdata"],
+    deps = [
+        ":parser_transitions",
+        ":populate_test_inputs",
+        ":sentence_proto",
+        ":task_spec_proto",
+        ":test_main",
+    ],
+)
+
+cc_test(
+    name = "binary_segment_transitions_test",
+    size = "small",
+    srcs = ["binary_segment_transitions_test.cc"],
+    deps = [
+        ":parser_transitions",
+        ":sentence_proto",
+        ":task_context",
+        ":test_main",
+        ":workspace",
+    ],
+)
+
+cc_test(
     name = "tagger_transitions_test",
     size = "small",
     srcs = ["tagger_transitions_test.cc"],
@@ -495,12 +673,53 @@ cc_test(
 )
 
 cc_test(
+    name = "once_transitions_test",
+    size = "small",
+    srcs = ["once_transitions_test.cc"],
+    deps = [
+        ":base",
+        ":parser_transitions",
+        ":sentence_proto",
+        ":task_context",
+        ":term_frequency_map",
+        ":test_main",
+    ],
+)
+
+cc_test(
+    name = "head_transitions_test",
+    size = "small",
+    srcs = ["head_transitions_test.cc"],
+    deps = [
+        ":base",
+        ":parser_transitions",
+        ":sentence_proto",
+        ":task_context",
+        ":term_frequency_map",
+        ":test_main",
+    ],
+)
+
+cc_test(
+    name = "label_transitions_test",
+    size = "small",
+    srcs = ["label_transitions_test.cc"],
+    deps = [
+        ":base",
+        ":parser_transitions",
+        ":sentence_proto",
+        ":task_context",
+        ":term_frequency_map",
+        ":test_main",
+    ],
+)
+
+cc_test(
     name = "parser_features_test",
     size = "small",
     srcs = ["parser_features_test.cc"],
     deps = [
         ":feature_extractor",
-        ":parser_features",
         ":parser_transitions",
         ":populate_test_inputs",
         ":sentence_proto",
@@ -527,6 +746,15 @@ py_library(
     name = "load_parser_ops_py",
     srcs = ["load_parser_ops.py"],
     data = [":parser_ops.so"],
+)
+
+py_library(
+    name = "syntaxnet_ops",
+    srcs = ["syntaxnet_ops.py"],
+    deps = [
+        ":parser_ops",
+        ":load_parser_ops_py",
+    ],
 )
 
 py_library(
@@ -565,6 +793,7 @@ py_binary(
         ":graph_builder",
         ":sentence_py_pb2",
         ":structured_graph_builder",
+        ":task_spec_py_pb2",
     ],
 )
 
@@ -659,5 +888,5 @@ sh_test(
         ":parser_trainer",
         ":testdata",
     ],
-    tags = ["notsan"],
+    tags = ["slow"],
 )

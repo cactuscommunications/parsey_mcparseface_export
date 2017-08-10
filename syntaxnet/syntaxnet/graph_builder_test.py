@@ -18,7 +18,6 @@
 
 # disable=no-name-in-module,unused-import,g-bad-import-order,maybe-no-member
 import os.path
-
 import tensorflow as tf
 
 from tensorflow.python.framework import test_util
@@ -40,10 +39,9 @@ class GraphBuilderTest(test_util.TensorFlowTestCase):
 
   def setUp(self):
     # Creates a task context with the correct testing paths.
-    initial_task_context = os.path.join(
-        FLAGS.test_srcdir,
-        'syntaxnet/'
-        'testdata/context.pbtxt')
+    initial_task_context = os.path.join(FLAGS.test_srcdir,
+                                        'syntaxnet/'
+                                        'testdata/context.pbtxt')
     self._task_context = os.path.join(FLAGS.test_tmpdir, 'context.pbtxt')
     with open(initial_task_context, 'r') as fin:
       with open(self._task_context, 'w') as fout:
@@ -221,7 +219,7 @@ class GraphBuilderTest(test_util.TensorFlowTestCase):
     with self.test_session(graph=graph1) as sess:
       sess.run(parser.inits.values())
       metrics1 = None
-      for _ in range(500):
+      for _ in range(50):
         cost1, _ = sess.run([parser.training['cost'],
                              parser.training['train_op']])
         em1 = parser.evaluation['eval_metrics'].eval()
@@ -240,7 +238,7 @@ class GraphBuilderTest(test_util.TensorFlowTestCase):
     with self.test_session(graph=graph2) as sess:
       sess.run(parser.inits.values())
       metrics2 = None
-      for _ in range(500):
+      for _ in range(50):
         cost2, _ = sess.run([parser.training['cost'],
                              parser.training['train_op']])
         em2 = parser.evaluation['eval_metrics'].eval()

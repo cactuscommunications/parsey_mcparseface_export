@@ -67,7 +67,7 @@ TF-Slim offers several advantages over just the built-in tensorflow libraries:
     copy-and-pasting hyperparameter values and simplifies hyperparameter tuning.
 *   Makes developing models simple by providing commonly used [loss functions]
     (losses.py)
-*   Provides a concise [definition](inception.py) of [Inception v3]
+*   Provides a concise [definition](inception_model.py) of [Inception v3]
     (http://arxiv.org/abs/1512.00567) network architecture ready to be used
     out-of-the-box or subsumed into new models.
 
@@ -246,11 +246,8 @@ number. More concretely, the scopes in the example above would be 'conv3_1',
 
 In addition to the types of scope mechanisms in TensorFlow ([name_scope]
 (https://www.tensorflow.org/api_docs/python/framework.html#name_scope),
-[op_scope](https://www.tensorflow.org/api_docs/python/framework.html#op_scope),
 [variable_scope]
 (https://www.tensorflow.org/api_docs/python/state_ops.html#variable_scope),
-[variable_op_scope]
-(https://www.tensorflow.org/api_docs/python/state_ops.html#variable_op_scope)),
 TF-Slim adds a new scoping mechanism called "argument scope" or [arg_scope]
 (scopes.py). This new scope allows a user to specify one or more operations and
 a set of arguments which will be passed to each of the operations defined in the
@@ -322,7 +319,7 @@ their use, consider the following example.
 def MyNewOp(inputs):
   varA = ...
   varB = ...
-  outputs = tf.mul(varA, inputs) + varB
+  outputs = tf.multiply(varA, inputs) + varB
   return outputs
 
 ```
@@ -448,15 +445,15 @@ defined with just the following snippet:
 
 ```python
 with arg_scope([slim.ops.conv2d, slim.ops.fc], stddev=0.01, weight_decay=0.0005):
-  net = slim.ops.repeat_op(1, inputs, slim.ops.conv2d, 64, [3, 3], scope='conv1')
+  net = slim.ops.repeat_op(2, inputs, slim.ops.conv2d, 64, [3, 3], scope='conv1')
   net = slim.ops.max_pool(net, [2, 2], scope='pool1')
-  net = slim.ops.repeat_op(1, net, slim.ops.conv2d, 128, [3, 3], scope='conv2')
+  net = slim.ops.repeat_op(2, net, slim.ops.conv2d, 128, [3, 3], scope='conv2')
   net = slim.ops.max_pool(net, [2, 2], scope='pool2')
-  net = slim.ops.repeat_op(2, net, slim.ops.conv2d, 256, [3, 3], scope='conv3')
+  net = slim.ops.repeat_op(3, net, slim.ops.conv2d, 256, [3, 3], scope='conv3')
   net = slim.ops.max_pool(net, [2, 2], scope='pool3')
-  net = slim.ops.repeat_op(2, net, slim.ops.conv2d, 512, [3, 3], scope='conv4')
+  net = slim.ops.repeat_op(3, net, slim.ops.conv2d, 512, [3, 3], scope='conv4')
   net = slim.ops.max_pool(net, [2, 2], scope='pool4')
-  net = slim.ops.repeat_op(2, net, slim.ops.conv2d, 512, [3, 3], scope='conv5')
+  net = slim.ops.repeat_op(3, net, slim.ops.conv2d, 512, [3, 3], scope='conv5')
   net = slim.ops.max_pool(net, [2, 2], scope='pool5')
   net = slim.ops.flatten(net, scope='flatten5')
   net = slim.ops.fc(net, 4096, scope='fc6')
@@ -582,11 +579,11 @@ name to each graph variable. Consider the following example where the checkpoint
 variables names are obtained via a simple function:
 
 ```python
-# Assuming than 'conv1/weights' should be restored from 'vgg16/conv1/weights'
+# Assuming that 'conv1/weights' should be restored from 'vgg16/conv1/weights'
 def name_in_checkpoint(var):
   return 'vgg16/' + var.op.name
 
-# Assuming than 'conv1/weights' and 'conv1/bias' should be restored from 'conv1/params1' and 'conv1/params2'
+# Assuming that 'conv1/weights' and 'conv1/bias' should be restored from 'conv1/params1' and 'conv1/params2'
 def name_in_checkpoint(var):
   if "weights" in var.op.name:
     return var.op.name.replace("weights", "params1")

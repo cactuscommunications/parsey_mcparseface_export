@@ -1,38 +1,25 @@
 local_repository(
   name = "org_tensorflow",
-  path = __workspace_dir__ + "/tensorflow",
+  path = "tensorflow",
 )
 
-load('//tensorflow/tensorflow:workspace.bzl', 'tf_workspace')
-tf_workspace("tensorflow/", "@org_tensorflow")
-
-# Specify the minimum required Bazel version.
-load("@org_tensorflow//tensorflow:tensorflow.bzl", "check_version")
-check_version("0.2.0")
-
-# ===== gRPC dependencies =====
-
-bind(
-    name = "libssl",
-    actual = "@ts_boringssl_git//:ssl",
+# We need to pull in @io_bazel_rules_closure for TensorFlow. Bazel design
+# documentation states that this verbosity is intentional, to prevent
+# TensorFlow/SyntaxNet from depending on different versions of
+# @io_bazel_rules_closure.
+http_archive(
+    name = "io_bazel_rules_closure",
+    sha256 = "60fc6977908f999b23ca65698c2bb70213403824a84f7904310b6000d78be9ce",
+    strip_prefix = "rules_closure-5ca1dab6df9ad02050f7ba4e816407f88690cf7d",
+    urls = [
+        "http://bazel-mirror.storage.googleapis.com/github.com/bazelbuild/rules_closure/archive/5ca1dab6df9ad02050f7ba4e816407f88690cf7d.tar.gz",  # 2017-02-03
+        "https://github.com/bazelbuild/rules_closure/archive/5ca1dab6df9ad02050f7ba4e816407f88690cf7d.tar.gz",
+    ],
 )
 
-git_repository(
-    name = "ts_boringssl_git",
-    commit = "436432d849b83ab90f18773e4ae1c7a8f148f48d",
-    init_submodules = True,
-    remote = "https://github.com/mdsteele/boringssl-bazel.git",
-)
+load("@org_tensorflow//tensorflow:workspace.bzl", "tf_workspace")
+tf_workspace(path_prefix="", tf_repo_name="org_tensorflow")
 
-bind(
-    name = "zlib",
-    actual = "@ts_zlib_archive//:zlib",
-)
-
-new_http_archive(
-    name = "ts_zlib_archive",
-    build_file = "zlib.BUILD",
-    sha256 = "879d73d8cd4d155f31c1f04838ecd567d34bebda780156f0e82a20721b3973d5",
-    strip_prefix = "zlib-1.2.8",
-    url = "http://zlib.net/zlib128.zip",
-)
+# Test that Bazel is up-to-date.
+load("@org_tensorflow//tensorflow:workspace.bzl", "check_version")
+check_version("0.4.2")

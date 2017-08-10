@@ -21,31 +21,33 @@ limitations under the License.
 #include <string>
 #include <vector>
 
-#include "syntaxnet/utils.h"
 #include "syntaxnet/registry.h"
 #include "syntaxnet/sentence.pb.h"
 #include "syntaxnet/task_context.h"
-#include "tensorflow/core/lib/io/inputbuffer.h"
+#include "syntaxnet/utils.h"
+#include "tensorflow/core/lib/io/buffered_inputstream.h"
 
 namespace syntaxnet {
 
 // A document format component converts a key/value pair from a record to one or
 // more documents. The record format is used for selecting the document format
 // component. A document format component can be registered with the
-// REGISTER_DOCUMENT_FORMAT macro.
+// REGISTER_SYNTAXNET_DOCUMENT_FORMAT macro.
 class DocumentFormat : public RegisterableClass<DocumentFormat> {
  public:
   DocumentFormat() {}
   virtual ~DocumentFormat() {}
 
+  virtual void Setup(TaskContext *context) {}
+
   // Reads a record from the given input buffer with format specific logic.
   // Returns false if no record could be read because we reached end of file.
-  virtual bool ReadRecord(tensorflow::io::InputBuffer *buffer,
+  virtual bool ReadRecord(tensorflow::io::BufferedInputStream *buffer,
                           string *record) = 0;
 
   // Converts a key/value pair to one or more documents.
   virtual void ConvertFromString(const string &key, const string &value,
-                                 vector<Sentence *> *documents) = 0;
+                                 std::vector<Sentence *> *documents) = 0;
 
   // Converts a document to a key/value pair.
   virtual void ConvertToString(const Sentence &document,
@@ -55,8 +57,8 @@ class DocumentFormat : public RegisterableClass<DocumentFormat> {
   TF_DISALLOW_COPY_AND_ASSIGN(DocumentFormat);
 };
 
-#define REGISTER_DOCUMENT_FORMAT(type, component) \
-  REGISTER_CLASS_COMPONENT(DocumentFormat, type, component)
+#define REGISTER_SYNTAXNET_DOCUMENT_FORMAT(type, component) \
+  REGISTER_SYNTAXNET_CLASS_COMPONENT(DocumentFormat, type, component)
 
 }  // namespace syntaxnet
 

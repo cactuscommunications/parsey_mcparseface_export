@@ -35,7 +35,7 @@
 set -e
 
 if [ -z "$1" ]; then
-  echo "usage download_and_preprocess_flowers.sh [data dir]"
+  echo "Usage: download_and_preprocess_flowers.sh [data dir]"
   exit
 fi
 
@@ -44,7 +44,7 @@ DATA_DIR="${1%/}"
 SCRATCH_DIR="${DATA_DIR}/raw-data/"
 mkdir -p "${DATA_DIR}"
 mkdir -p "${SCRATCH_DIR}"
-WORK_DIR="$0.runfiles/inception"
+WORK_DIR="$0.runfiles/inception/inception"
 
 # Download the flowers data.
 DATA_URL="http://download.tensorflow.org/example_images/flower_photos.tgz"
@@ -53,7 +53,7 @@ cd "${DATA_DIR}"
 TARBALL="flower_photos.tgz"
 if [ ! -f ${TARBALL} ]; then
   echo "Downloading flower data set."
-  wget -O ${TARBALL} "${DATA_URL}"
+  curl -o ${TARBALL} "${DATA_URL}"
 else
   echo "Skipping download of flower data."
 fi
