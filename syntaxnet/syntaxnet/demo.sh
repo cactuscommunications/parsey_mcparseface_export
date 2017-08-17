@@ -23,7 +23,7 @@
 # To run on a conll formatted file, add the --conll command line argument.
 #
 
-PARSER_EVAL=bazel-bin/syntaxnet/parser_eval
+PARSER_EVAL=bazel-bin/syntaxnet/parsey_mcparseface
 MODEL_DIR=syntaxnet/models/parsey_mcparseface
 [[ "$1" == "--conll" ]] && INPUT_FORMAT=stdin-conll || INPUT_FORMAT=stdin
 

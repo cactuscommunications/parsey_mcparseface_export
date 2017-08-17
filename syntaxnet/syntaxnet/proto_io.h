@@ -200,7 +200,7 @@ class VectorIn : public tensorflow::RandomAccessFile {
 class TextReader {
  public:
 
-  explicit TextReader(const TaskInput &input, TaskContext *context) : TextReader(input, context nullptr) { }
+  explicit TextReader(const TaskInput &input, TaskContext *context) : TextReader(input, context, nullptr) { }
 
   explicit TextReader(const TaskInput &input, TaskContext *context,
 		      std::unique_ptr<std::vector<std::string>> feed_text)
@@ -241,7 +241,7 @@ class TextReader {
     if (feed_text_ != nullptr) {
       static const int kInputBufferSize = 8 * 1024; /* bytes */
       file_.reset(new VectorIn(std::move(feed_text_)));
-      buffer_.reset(new tensorflow::io::InputBuffer(file_.get(), kInputBufferSize));
+      buffer_.reset(new tensorflow::io::BufferedInputStream(file_.get(), kInputBufferSize));
     } else if (filename_ == "-") {
       static const int kInputBufferSize = 8 * 1024; /* bytes */
       file_.reset(new StdIn());

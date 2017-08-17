@@ -27,7 +27,6 @@ from tensorflow.python.platform import tf_logging as logging
 
 from google.protobuf import text_format
 
-from syntaxnet import sentence_pb2
 from syntaxnet import graph_builder
 from syntaxnet import structured_graph_builder
 from syntaxnet.ops import gen_parser_ops

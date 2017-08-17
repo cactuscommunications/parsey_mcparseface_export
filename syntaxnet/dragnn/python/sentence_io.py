@@ -49,7 +49,8 @@ class ConllSentenceReader(object):
           }
           """
     with self._graph.as_default():
-      self._source, self._is_last = gen_parser_ops.document_source(
+      unused_hack = tf.constant("nothing")
+      self._source, self._is_last = gen_parser_ops.document_source(text=unused_hack,
           task_context_str=task_context_str, batch_size=batch_size)
       self._source = gen_parser_ops.well_formed_filter(self._source)
       if projectivize:

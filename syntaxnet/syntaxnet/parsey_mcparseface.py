@@ -7,7 +7,7 @@ from tensorflow.python.platform import tf_logging as logging
 from syntaxnet import parser_eval
 from syntaxnet.ops import gen_parser_ops
 from syntaxnet import structured_graph_builder
-from tensorflow_serving.session_bundle import exporter
+# from tensorflow_serving.session_bundle import exporter
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -85,28 +85,71 @@ def GetFeatureSize(task_context, arg_prefix):
       return sess.run(gen_parser_ops.feature_size(task_context=task_context,
                       arg_prefix=arg_prefix))
 
+def save_model(session, input_tensor, output_tensor, save_path):
+    if output_tensor is None:
+        signature = tf.saved_model.signature_def_utils.build_signature_def(
+            inputs={'input': tf.saved_model.utils.build_tensor_info(input_tensor)},
+        )
+    else:
+
+        print "Output TENSOR IS AWSOME"
+
+        #output_tensor = tf.identity(output_tensor, name="output")
+
+        #output_tensor = tf.reduce_sum(output_tensor, name = "output")
+        #output_tensor = tf.gather(output_tensor, 0, name="output")
+
+        #output_tensor = tf.reduce_join(output_tensor, 0, keep_dims=False, separator='', name="output")
+
+        output_tensor = tf.reduce_join(output_tensor, 0, keep_dims=False, separator='')
+        output_tensor = tf.Print(output_tensor, [output_tensor], name="output")
+
+        #output_tensor = tf.gather(output_tensor, 0, name="output")
+
+        #output_tensor = tf.gather(output_tensor, [0])
+        #output_tensor = tf.squeeze(output_tensor, name="output")
+
+        #print "Output is a: "
+        #print output_tensor
+
+        signature = tf.saved_model.signature_def_utils.build_signature_def(
+            inputs={'input': tf.saved_model.utils.build_tensor_info(input_tensor)},
+            outputs={'output': tf.saved_model.utils.build_tensor_info(output_tensor)},
+        )
+
+    b = tf.saved_model.builder.SavedModelBuilder(save_path)
+    b.add_meta_graph_and_variables(session,
+                                   [tf.saved_model.tag_constants.SERVING],
+                                   signature_def_map={
+                                       tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: signature})
+    b.save()
+
 # export the model in various ways. this erases any previously saved model
 def ExportModel(sess, model_dir, input, output, assets):
   if os.path.isdir(model_dir):
-    shutil.rmtree(model_dir);
+    shutil.rmtree(model_dir)
 
-  # using TF Serving exporter to load into a TF Serving session bundle
-  logging.info('Exporting trained model to %s', model_dir)
-  saver = tf.train.Saver()
-  model_exporter = exporter.Exporter(saver)
-  signature = exporter.regression_signature(input_tensor=input,output_tensor=output)
-  model_exporter.init(sess.graph.as_graph_def(),
-                      default_graph_signature=signature,
-                      assets_collection=assets)
-  model_exporter.export(model_dir, tf.constant(1), sess)
+  save_model(sess, input, output, model_dir)
 
-  # using a SummaryWriter so graph can be loaded in TensorBoard
-  writer = tf.train.SummaryWriter(model_dir, sess.graph)
-  writer.flush()
+  # # using TF Serving exporter to load into a TF Serving session bundle
+  # logging.info('Exporting trained model to %s', model_dir)
+  # saver = tf.train.Saver()
+  # model_exporter = exporter.Exporter(saver)
+  # signature = exporter.regression_signature(input_tensor=input,output_tensor=output)
+  # model_exporter.init(sess.graph.as_graph_def(),
+  #                     default_graph_signature=signature,
+  #                     assets_collection=assets)
+  # model_exporter.export(model_dir, tf.constant(1), sess)
+  #
+  # # using a SummaryWriter so graph can be loaded in TensorBoard
+  # writer = tf.train.SummaryWriter(model_dir, sess.graph)
+  # writer.flush()
+  #
+  # # exporting the graph as a text protobuf, to view graph manualy
+  # f1 = open(model_dir + '/graph.pbtxt', 'w+');
+  # print >>f1, str(tf.get_default_graph().as_graph_def())
 
-  # exporting the graph as a text protobuf, to view graph manualy
-  f1 = open(model_dir + '/graph.pbtxt', 'w+');
-  print >>f1, str(tf.get_default_graph().as_graph_def())
+
 
 def main(unused_argv):
   logging.set_verbosity(logging.INFO)
@@ -147,11 +190,17 @@ def main(unused_argv):
       model[prefix].update({'feature_sizes': feature_sizes,
                                'domain_sizes': domain_sizes,
                                'embedding_dims': embedding_dims,
-                               'num_actions': num_actions })
+                               'num_actions': num_actions})
 
   with tf.Session() as sess:
       if FLAGS.export_path is not None:
-          text_input = tf.placeholder(tf.string, [None])
+
+          # Hack! - Java API does not support non-scalar string tensors
+          single_text_input = tf.placeholder(tf.string, [], name="input")
+          text_input = tf.reshape(single_text_input, [1])
+
+          text_input = tf.Print(text_input, [text_input], "input_debug")
+
       else:
           text_input = tf.constant(["parsey is the greatest"], tf.string)
 
@@ -176,12 +225,13 @@ def main(unused_argv):
                                       corpus_name="stdout-conll")
           sess.run(sink)
       else:
+
           assets = []
           for model_file in os.listdir(model_dir):
               path = os.path.join(model_dir, model_file)
               if not os.path.isdir(path):
                 assets.append(tf.constant(path))
-          ExportModel(sess, FLAGS.export_path, text_input, model["brain_parser"]["documents"], assets)
+          ExportModel(sess, FLAGS.export_path, single_text_input, model["brain_parser"]["documents"], assets)
 
 if __name__ == '__main__':
   tf.app.run()

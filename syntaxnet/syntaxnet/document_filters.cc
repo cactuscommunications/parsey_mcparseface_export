@@ -116,7 +116,7 @@ class DocumentSource : public OpKernel {
         LOG(INFO) << "text: " << input_vec(i);
       }
 
-      vec_reader.reset(new TextReader(*task_context_.GetInput(corpus_name_),
+      vec_reader.reset(new TextReader(*task_context_.GetInput(corpus_name_), &task_context_,
 				      std::move(strings)));
     }
 

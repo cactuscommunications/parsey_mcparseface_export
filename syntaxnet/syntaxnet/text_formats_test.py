@@ -83,7 +83,7 @@ class TextFormatsTest(test_util.TensorFlowTestCase):
     sentence, _ = gen_parser_ops.document_source(
         text=unused_text_input,
         task_context=self.context_file,
-        batch_size=1)
+        batch_size=1, documents_from_input=False)
     with self.test_session() as sess:
       sentence_doc = self.ReadNextDocument(sess, sentence)
       self.assertEqual(' '.join([t.word
@@ -94,8 +94,9 @@ class TextFormatsTest(test_util.TensorFlowTestCase):
     logging.info('Writing text file to: %s', self.corpus_file)
     with open(self.corpus_file, 'w') as f:
       f.write(sentence)
-    sentence, _ = gen_parser_ops.document_source(
-        task_context=self.context_file, batch_size=1)
+    unused_hack = tf.constant("nothing")
+    sentence, _ = gen_parser_ops.document_source(text=unused_hack,
+        task_context=self.context_file, batch_size=1, documents_from_input=False)
     with self.test_session() as sess:
       sentence_doc = self.ReadNextDocument(sess, sentence)
       self.assertEqual(len(sentence_doc.token), len(words))
@@ -133,8 +134,9 @@ class TextFormatsTest(test_util.TensorFlowTestCase):
     self.WriteContext('conll-sentence')
 
     # Test converted sentence.
-    sentence, _ = gen_parser_ops.document_source(
-        task_context=self.context_file, batch_size=1)
+    unused_hack = tf.constant("nothing")
+    sentence, _ = gen_parser_ops.document_source(text=unused_hack,
+        task_context=self.context_file, batch_size=1, documents_from_input=False)
 
     # Expected texts, words, and start/end offsets.
     expected_text = u'We\'ve moved on.'
@@ -178,8 +180,9 @@ token {
     self.WriteContext('sentence-prototext')
 
     # Test converted sentence.
-    sentence, _ = gen_parser_ops.document_source(
-        task_context=self.context_file, batch_size=1)
+    unused_hack = tf.constant("nothing")
+    sentence, _ = gen_parser_ops.document_source(text=unused_hack,
+        task_context=self.context_file, batch_size=1, documents_from_input=False)
 
     # Expected texts, words, and start/end offsets.
     expected_text = u'fair enough; you people have eaten me.'
@@ -225,8 +228,9 @@ token {
       f.write(''.join(doc_lines))
 
     # Test converted sentence.
-    sentence, _ = gen_parser_ops.document_source(
-        task_context=self.context_file, batch_size=1)
+    unused_hack = tf.constant("nothing")
+    sentence, _ = gen_parser_ops.document_source(text=unused_hack,
+        task_context=self.context_file, batch_size=1, documents_from_input=False)
     with self.test_session() as sess:
       sentence_doc = self.ReadNextDocument(sess, sentence)
       self.assertEqual(doc_text.decode('utf-8'), sentence_doc.text)

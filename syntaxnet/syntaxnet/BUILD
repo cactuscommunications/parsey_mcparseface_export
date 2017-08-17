@@ -307,6 +307,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":utils",
+        "@org_tensorflow//tensorflow/core:framework_headers_lib",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
     alwayslink = 1,
 )
@@ -316,6 +319,9 @@ cc_library(
     srcs = ["morphology_label_set.cc"],
     hdrs = ["morphology_label_set.h"],
     deps = [
+        "@org_tensorflow//tensorflow/core:framework_headers_lib",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
         ":document_format",
         ":feature_extractor",
         ":proto_io",
@@ -472,8 +478,13 @@ cc_library(
     name = "unpack_sparse_features",
     srcs = ["unpack_sparse_features.cc"],
     deps = [
-        ":sparse_proto",
         ":utils",
+        "//util/utf8:unicodetext",
+        "@org_tensorflow//tensorflow/core:framework_headers_lib",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
+        ":base",
+        ":sparse_proto",
     ],
     alwayslink = 1,
 )

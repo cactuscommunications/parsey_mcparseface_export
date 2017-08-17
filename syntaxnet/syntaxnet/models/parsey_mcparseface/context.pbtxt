@@ -187,3 +187,24 @@ input {
     file_pattern: '-'
   }
 }
+input {
+  name: 'wsj-data'
+  record_format: 'english-text'
+  Part {
+    file_pattern: '-'
+  }
+}
+input {
+  name: 'wsj-data-tagged'
+  record_format: 'sentence-prototext'
+  Part {
+    file_pattern: '-'
+  }
+}
+input {
+  name: 'wsj-data-parsed'
+  record_format: 'sentence-prototext'
+  Part {
+    file_pattern: '-'
+  }
+}
