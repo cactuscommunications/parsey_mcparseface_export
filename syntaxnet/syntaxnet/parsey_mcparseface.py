@@ -94,15 +94,15 @@ def save_model(session, input_tensor, output_tensor, save_path):
 
         print "Output TENSOR IS AWSOME"
 
-        #output_tensor = tf.identity(output_tensor, name="output")
+        output_tensor = tf.identity(output_tensor, name="output")
 
         #output_tensor = tf.reduce_sum(output_tensor, name = "output")
         #output_tensor = tf.gather(output_tensor, 0, name="output")
 
         #output_tensor = tf.reduce_join(output_tensor, 0, keep_dims=False, separator='', name="output")
 
-        output_tensor = tf.reduce_join(output_tensor, 0, keep_dims=False, separator='')
-        output_tensor = tf.Print(output_tensor, [output_tensor], name="output")
+        #output_tensor = tf.reduce_join(output_tensor, 0, keep_dims=False, separator='')
+        #output_tensor = tf.Print(output_tensor, [output_tensor], name="output")
 
         #output_tensor = tf.gather(output_tensor, 0, name="output")
 
@@ -199,7 +199,7 @@ def main(unused_argv):
           single_text_input = tf.placeholder(tf.string, [], name="input")
           text_input = tf.reshape(single_text_input, [1])
 
-          text_input = tf.Print(text_input, [text_input], "input_debug")
+          #text_input = tf.Print(text_input, [text_input], "input_debug")
 
       else:
           text_input = tf.constant(["parsey is the greatest"], tf.string)
@@ -218,6 +218,7 @@ def main(unused_argv):
               if True or prefix == "brain_tagger":
                   source = document_source.documents if prefix == "brain_tagger" else model["brain_tagger"]["documents"]
                   model[prefix]["documents"] = Build(sess, source, model[prefix])
+                  #model[prefix]["documents"] = tf.Print(model[prefix]["documents"], [model[prefix]["documents"]])
 
       if FLAGS.export_path is None:
           sink = gen_parser_ops.document_sink(model["brain_parser"]["documents"],
@@ -231,7 +232,13 @@ def main(unused_argv):
               path = os.path.join(model_dir, model_file)
               if not os.path.isdir(path):
                 assets.append(tf.constant(path))
-          ExportModel(sess, FLAGS.export_path, single_text_input, model["brain_parser"]["documents"], assets)
+
+          sink = gen_parser_ops.document_string_sink(model["brain_parser"]["documents"],
+                                              task_context=task_context,
+                                              corpus_name="wsj-data-parsed")
+
+
+          ExportModel(sess, FLAGS.export_path, single_text_input, sink, assets)
 
 if __name__ == '__main__':
   tf.app.run()
